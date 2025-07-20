@@ -1,5 +1,0 @@
-crewai
-yfinance
-requests
-python-dotenv
-langchain-google-genai
