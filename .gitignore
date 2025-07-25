@@ -180,3 +180,6 @@ market_segmentation_*.txt
 research_reports/
 scraped_data/
 analysis_results/
+
+mlartifacts/
+mlruns/
