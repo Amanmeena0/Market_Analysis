@@ -1,9 +1,0 @@
-crewai>=0.141.0
-serpapi
-google-api-python-client
-youtube-transcript-api
-praw
-python-dotenv
-crawl4ai
-aiohttp
-beautifulsoup4
