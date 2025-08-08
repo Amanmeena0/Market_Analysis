@@ -9,19 +9,20 @@ from config.settings import output_dir
 from .utils import get_llm
 from .graph import make_graph
 
+
 # ------------------------------------------------------------------
 # Public entry-point: caller provides an asyncio.Queue
 # ------------------------------------------------------------------
 async def create_agent(
-    id:str,
+    id: str,
     analysisType: str,
     user_prompt: str,
     tools: List[BaseTool],
     out_queue: asyncio.Queue,
     PROMPT: str,
-    reflection_instructions_prompt ,
-    fill_gaps_prompt ,
-    merge_gaps_prompt ,
+    reflection_instructions_prompt,
+    fill_gaps_prompt,
+    merge_gaps_prompt,
 ) -> None:
     # Convert id to string in case it's an ObjectId
     id_str = str(id)
@@ -44,6 +45,7 @@ async def create_agent(
 
         async for message in react_agent.astream(
             {"messages": [{"role": "user", "content": user_prompt}]},
+            {"recursion_limit": 50},
             stream_mode="values",
         ):
             last = message["messages"][-1]
@@ -57,38 +59,40 @@ async def create_agent(
                 init_report = last.content
 
         final_report = ""
-         
+
         async for mode, message in industry_research_agent.astream(
             {
                 "knowledge_gaps": "",
                 "k": 0,
                 "report": init_report,
                 "kg_gap": "",
-            }, # type: ignore
+            },  # type: ignore
             stream_mode=["updates", "messages", "custom"],
         ):
-            if mode == 'messages':
-                msg,metadata = message[0], message[1]
+            if mode == "messages":
+                msg, metadata = message[0], message[1]
                 if msg.content and metadata["langgraph_node"] != "merge_filled_gaps" or metadata["langgraph_node"] == "find_gaps":  # type: ignore
-                    await out_queue.put(msg.content) # type: ignore
+                    await out_queue.put(msg.content)  # type: ignore
 
             if mode == "updates":
                 if "final" in message:
-                    final_report = message["final"]["report"] # type: ignore
+                    final_report = message["final"]["report"]  # type: ignore
                 if "merge_filled_gaps" in message:
-                    await out_queue.put("=" * 30 + "Merging the gathered Resources" + "=" * 30 + "\n")
+                    await out_queue.put(
+                        "=" * 30 + "Merging the gathered Resources" + "=" * 30 + "\n"
+                    )
             else:
                 if "react_agent" in message:
-                    msg = message["react_agent"]["messages"][-1] # type: ignore
-                    await out_queue.put(msg.content) # type: ignore
+                    msg = message["react_agent"]["messages"][-1]  # type: ignore
+                    await out_queue.put(msg.content)  # type: ignore
                 else:
                     chunk, meta = message[0], message[1]
-                    node = meta['langgraph_node'] # type: ignore
+                    node = meta["langgraph_node"]  # type: ignore
 
                     if node == "tools":
                         await out_queue.put("Tool Call:\n")
-                        await out_queue.put(chunk.content + "\n") # type: ignore
-            
+                        await out_queue.put(chunk.content + "\n")  # type: ignore
+
         print("Generating final report...")
         pdf = MarkdownPdf()
         pdf.meta["title"] = analysisType
@@ -97,16 +101,15 @@ async def create_agent(
         os.makedirs(f"{output_dir}/{id_str}", exist_ok=True)
         pdf.save(os.path.join(output_dir, id_str, f"{analysisType}.pdf"))
 
-        await out_queue.put(f"__OUTPUT_FILE__{output_dir}/{id_str}/{analysisType}.pdf\n")
+        await out_queue.put(
+            f"__OUTPUT_FILE__{output_dir}/{id_str}/{analysisType}.pdf\n"
+        )
 
     except Exception as exc:
-        
+
         print(exc)
         await out_queue.put(f"__ERROR__{type(exc).__name__}: {exc}")
-        
 
     finally:
-        
+
         await out_queue.put(None)
-    
-    

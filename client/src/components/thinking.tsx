@@ -60,6 +60,7 @@ function Thinking({ id }: { id: string }) {
             ws.close();
            
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
 
