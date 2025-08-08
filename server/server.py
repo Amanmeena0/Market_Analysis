@@ -1,8 +1,7 @@
 import asyncio
 
 import os
-from time import time
-import uuid
+from bson import ObjectId
 from contextlib import asynccontextmanager
 from typing import Dict, List
 
@@ -12,14 +11,19 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from config.settings import output_dir
-from database.db import db
-from bson import ObjectId
 
 from uvicorn import run
 
-from agents.Industry_Research.streaming_agent import run_agent as industry_agent
-from database.schema import AnalysisSchema, Status 
+from config.settings import output_dir
+from database.db import db
+from agents.create_agent import create_agent
+from database.schema import AnalysisSchema, AnalysisType, Status 
+from prompts.industry import *
+from prompts.barrier_assessment import *
+from prompts.competitive_analysis import *
+from prompts.market_gap import *
+from prompts.sales_forecast import *
+from prompts.target_market_segmentation import *
 
 
 # ---------- lifespan: MCP client ----------
@@ -63,27 +67,6 @@ tasks: Dict[str, asyncio.Task] = {}
 # ---------- HTTP: start the job ----------
 class ResearchRequest(BaseModel):
     user_prompt: str
-
-
-@app.post("/ws/start")
-async def start_research(req: ResearchRequest):
-
-    rid = str(uuid.uuid4())
-    q: asyncio.Queue = asyncio.Queue()
-    queues[rid] = q
-
-    # fire-and-forget coroutine
-    task = asyncio.create_task(industry_agent(rid, req.user_prompt, McpState.tools, q))
-    tasks[rid] = task
-
-    # clean up when done
-    def _cleanup(t):
-        queues.pop(rid, None)
-        tasks.pop(rid, None)
-
-    task.add_done_callback(_cleanup)
-
-    return {"request_id": rid}
 
 
 # ---------- WebSocket ----------
@@ -192,8 +175,95 @@ async def create_analysis(req: Request):
     q: asyncio.Queue = asyncio.Queue()
     queues[analysis_id] = q
 
-    # fire-and-forget coroutine
-    task = asyncio.create_task(industry_agent(analysis_id, doc.query, McpState.tools, q))
+    task = None
+    if doc.analysis_type == AnalysisType.INDUSTRY_ANALYSIS:
+        task = asyncio.create_task(
+            create_agent(
+                id=analysis_id,
+                analysisType=doc.analysis_type,
+                user_prompt=doc.query,
+                tools=McpState.tools,
+                out_queue=q,
+                PROMPT=INDUSTRY_PROMPT,
+                reflection_instructions_prompt=industry_reflection_instructions_prompt,
+                fill_gaps_prompt=industry_fill_gaps_prompt,
+                merge_gaps_prompt=industry_merge_gaps_prompt,
+            )
+        )
+    elif doc.analysis_type == AnalysisType.BARRIER_ANALYSIS:
+        task = asyncio.create_task(
+            create_agent(
+                id=analysis_id,
+                analysisType=doc.analysis_type,
+                user_prompt=doc.query,
+                tools=McpState.tools,
+                out_queue=q,
+                PROMPT=BARRIER_ASSESSMENT_PROMPT,
+                reflection_instructions_prompt=barrier_assessment_reflection_instructions_prompt,
+                fill_gaps_prompt=barrier_assessment_fill_gaps_prompt,
+                merge_gaps_prompt=barrier_assessment_merge_gaps_prompt,
+            )
+        )
+    elif doc.analysis_type == AnalysisType.COMPETITOR_ANALYSIS:
+        task = asyncio.create_task(
+            create_agent(
+                id=analysis_id,
+                analysisType=doc.analysis_type,
+                user_prompt=doc.query,
+                tools=McpState.tools,
+                out_queue=q,
+                PROMPT=COMPETITIVE_ANALYSIS_PROMPT,
+                reflection_instructions_prompt=competitive_analysis_reflection_instructions_prompt,
+                fill_gaps_prompt=competitive_analysis_fill_gaps_prompt,
+                merge_gaps_prompt=competitive_analysis_merge_gaps_prompt,
+            )
+        )
+    elif doc.analysis_type == AnalysisType.MARKET_GAP_ANALYSIS:
+        task = asyncio.create_task(
+            create_agent(
+                id=analysis_id,
+                analysisType=doc.analysis_type,
+                user_prompt=doc.query,
+                tools=McpState.tools,
+                out_queue=q,
+                PROMPT=MARKET_GAP_PROMPT,
+                reflection_instructions_prompt=market_gap_reflection_instructions_prompt,
+                fill_gaps_prompt=market_gap_fill_gaps_prompt,
+                merge_gaps_prompt=market_gap_merge_gaps_prompt,
+            )
+        )
+    elif doc.analysis_type == AnalysisType.SALES_FORECASTING:
+        task = asyncio.create_task(
+            create_agent(
+                id=analysis_id,
+                analysisType=doc.analysis_type,
+                user_prompt=doc.query,
+                tools=McpState.tools,
+                out_queue=q,
+                PROMPT=SALES_FORECAST_PROMPT,
+                reflection_instructions_prompt=sales_forecast_reflection_instructions_prompt,
+                fill_gaps_prompt=sales_forecast_fill_gaps_prompt,
+                merge_gaps_prompt=sales_forecast_merge_gaps_prompt,
+            )
+        )
+    elif doc.analysis_type == AnalysisType.TARGET_MARKET_ANALYSIS:
+        task = asyncio.create_task(
+            create_agent(
+                id=analysis_id,
+                analysisType=doc.analysis_type,
+                user_prompt=doc.query,
+                tools=McpState.tools,
+                out_queue=q,
+                PROMPT=TARGET_MARKET_SEGMENTATION_PROMPT,
+                reflection_instructions_prompt=target_market_segmentation_reflection_instructions_prompt,
+                fill_gaps_prompt=target_market_segmentation_fill_gaps_prompt,
+                merge_gaps_prompt=target_market_segmentation_merge_gaps_prompt,
+            )
+        )
+    
+    if task is None:
+        raise HTTPException(status_code=400, detail="Unsupported analysis type")
+    
     tasks[analysis_id] = task
 
     # clean up when done
@@ -204,6 +274,7 @@ async def create_analysis(req: Request):
         )
         queues.pop(analysis_id, None)
         tasks.pop(analysis_id, None)
+        
 
     task.add_done_callback(_cleanup)
 

@@ -5,7 +5,7 @@ import { Analysis } from '@/lib/types';
 
 async function AnalysisPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-
+    
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/analysis/${id}`, {
         method: 'GET',
     });

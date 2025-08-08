@@ -6,23 +6,25 @@ from langchain_core.tools import BaseTool
 from langchain_core.messages import ToolMessage, AIMessage
 from langgraph.prebuilt import create_react_agent
 from config.settings import output_dir
-from database.schema import AnalysisType
-from ..utils import get_llm
-from ..graph import make_graph
-from .prompt import PROMPT, reflection_instructions_prompt, fill_gaps_prompt, merge_gaps_prompt
+from .utils import get_llm
+from .graph import make_graph
 
 # ------------------------------------------------------------------
 # Public entry-point: caller provides an asyncio.Queue
 # ------------------------------------------------------------------
-async def run_agent(
+async def create_agent(
     id:str,
+    analysisType: str,
     user_prompt: str,
     tools: List[BaseTool],
     out_queue: asyncio.Queue,
+    PROMPT: str,
+    reflection_instructions_prompt ,
+    fill_gaps_prompt ,
+    merge_gaps_prompt ,
 ) -> None:
     # Convert id to string in case it's an ObjectId
     id_str = str(id)
-    print(f"Running agent for {id_str} with prompt: {user_prompt}")
     try:
         llm = get_llm()
 
@@ -89,22 +91,22 @@ async def run_agent(
             
         print("Generating final report...")
         pdf = MarkdownPdf()
-        pdf.meta["title"] = 'Industry Research Report'
+        pdf.meta["title"] = analysisType
         pdf.add_section(Section(final_report, toc=False))
 
         os.makedirs(f"{output_dir}/{id_str}", exist_ok=True)
-        pdf.save(os.path.join(output_dir, id_str, f"{AnalysisType.INDUSTRY_ANALYSIS}.pdf"))
+        pdf.save(os.path.join(output_dir, id_str, f"{analysisType}.pdf"))
 
-        await out_queue.put(f"__OUTPUT_FILE__{output_dir}/{id_str}/{AnalysisType.INDUSTRY_ANALYSIS}.pdf\n")
+        await out_queue.put(f"__OUTPUT_FILE__{output_dir}/{id_str}/{analysisType}.pdf\n")
 
     except Exception as exc:
-        # Push a single-line error tag for easy parsing on the client side
+        
         print(exc)
         await out_queue.put(f"__ERROR__{type(exc).__name__}: {exc}")
         
 
     finally:
-        # Always push sentinel so the client knows the run is over
+        
         await out_queue.put(None)
     
     

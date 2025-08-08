@@ -6,7 +6,7 @@ import { Card, CardDescription, CardFooter, CardHeader } from "@/components/ui/c
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ResearchType } from "@/lib/types";
-import { Dot,  SparklesIcon } from "lucide-react";
+import { Dot, SparklesIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -37,25 +37,32 @@ export default function Home() {
     setanalysiserror("");
     setloading(true);
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/analysis`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: query,
-        analysis_type: analysisType,
-      }),
-    })
+    try {
 
-    if (!res.ok) {
-      console.error("Failed to create analysis:", res.statusText);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/analysis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query,
+          analysis_type: analysisType,
+        }),
+      })
+
+      if (!res.ok) {
+        console.error("Failed to create analysis:", res.statusText);
+        setloading(false);
+        return;
+      }
+      const { id } = await res.json();
+      router.push(`/analysis/${id}`)
+
+    } catch (error) {
       setloading(false);
-      return;
+      console.log(error)
     }
 
-    const { id } = await res.json();
-    router.push(`/analysis/${id}`)
 
   }
 
@@ -71,7 +78,7 @@ export default function Home() {
       <Card className="lg:w-[50%] sm:w-[70%] mx-auto max-sm:w-[90%]">
         <CardHeader className="text-center ">
           <Badge variant={'outline'} className="text-md mb-2 bg-primary/5 text-primary mx-auto space-x-2 p-2 px-4 rounded-full">
-            <SparklesIcon  />
+            <SparklesIcon />
             <p>AI-Powered Analysis</p>
           </Badge>
           <h2 className="text-3xl font-semibold">What market would you like to research?</h2>
@@ -96,7 +103,6 @@ export default function Home() {
                 <SelectItem value={ResearchType.BARRIER_ANALYSIS}>Barrier Analysis</SelectItem>
                 <SelectItem value={ResearchType.TARGET_MARKET_ANALYSIS}>Target Market Segmentation</SelectItem>
                 <SelectItem value={ResearchType.SALES_FORECASTING}>Sales Forecasting</SelectItem>
-                <SelectItem value={ResearchType.MARKET_RESEARCH}>All</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -112,11 +118,11 @@ export default function Home() {
         <CardFooter className="space-y-4 block">
           <p className="text-muted-foreground text-center w-full">Popular Search Topics:</p>
           <div className="flex flex-wrap justify-center gap-2">
-            <Button variant={'outline'} onClick={()=>setquery('Electric vehicle market')}>Electric vehicle market</Button>
-            <Button variant={'outline'} onClick={()=>setquery('AI in healthcare')}>AI in healthcare</Button>
-            <Button variant={'outline'} onClick={()=>setquery('Sustainable Fashion')}>Sustainable Fashion</Button>
-            <Button variant={'outline'} onClick={()=>setquery('Remote work Software')}>Remote work Software</Button>
-            <Button variant={'outline'} onClick={()=>setquery('Plant based food industry')}>Plant based food industry</Button>
+            <Button variant={'outline'} onClick={() => setquery('Electric vehicle market')}>Electric vehicle market</Button>
+            <Button variant={'outline'} onClick={() => setquery('AI in healthcare')}>AI in healthcare</Button>
+            <Button variant={'outline'} onClick={() => setquery('Sustainable Fashion')}>Sustainable Fashion</Button>
+            <Button variant={'outline'} onClick={() => setquery('Remote work Software')}>Remote work Software</Button>
+            <Button variant={'outline'} onClick={() => setquery('Plant based food industry')}>Plant based food industry</Button>
           </div>
         </CardFooter>
       </Card>

@@ -5,7 +5,6 @@ export enum ResearchType {
     TARGET_MARKET_ANALYSIS = 'Target Market Report',
     BARRIER_ANALYSIS = 'Barrier Report',
     SALES_FORECASTING = 'Sales Forecast Report',
-    MARKET_RESEARCH = 'Market Research Report',
 }
 
 export interface Analysis{

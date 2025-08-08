@@ -1,11 +1,12 @@
 'use client'
 
 
-import {  ChevronRight, LoaderPinwheel } from 'lucide-react';
+import { ChevronRight, LoaderPinwheel } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
+import { useRouter } from 'next/navigation';
 
 function Thinking({ id }: { id: string }) {
 
@@ -14,13 +15,14 @@ function Thinking({ id }: { id: string }) {
     const [running, setRunning] = useState(false);
     const [expand, setExpand] = useState(false);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const router = useRouter()
 
-    // Auto-scroll
+    // Auto-scroll to bottom when new text is added
     useEffect(() => {
-        if (scrollContainerRef.current && running) {
+        if (scrollContainerRef.current && expand) {
             scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
         }
-    }, [text, running]);
+    }, [text, expand]);
 
 
     useEffect(() => {
@@ -37,6 +39,11 @@ function Thinking({ id }: { id: string }) {
                 console.error('Error from server:', content);
                 setRunning(false);
                 setIsError(true);
+                return;
+            }
+            if (content.startsWith('__OUTPUT_FILE__')) {
+                console.log('File output:', content);
+                router.refresh();
                 return;
             }
             setText((prev) => prev + content);
@@ -61,9 +68,11 @@ function Thinking({ id }: { id: string }) {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <h2 className="text-2xl font-bold">Creating Report</h2>
-                    <div className="flex items-center gap-2">
-                        <LoaderPinwheel className="animate-spin" />
-                    </div>
+                    {running && (
+                        <div className="flex items-center gap-2">
+                            <LoaderPinwheel className="animate-spin" />
+                        </div>
+                    )}
                 </div>
                 <Button
                     size="icon"
@@ -77,9 +86,21 @@ function Thinking({ id }: { id: string }) {
             </div>
             <div
                 ref={scrollContainerRef}
-                className={`p-4 rounded-2xl w-full relative text-muted-foreground text-wrap transition-all duration-300 ${expand ? 'max-h-[400px] overflow-y-auto' : 'max-h-0 overflow-hidden'}`}
+                className={`p-4 rounded-2xl w-full relative text-muted-foreground transition-all duration-300 ${expand ? 'max-h-[600px] overflow-y-auto' : 'max-h-0 overflow-hidden'}`}
             >
-                <Markdown>{text}</Markdown>
+                <div className="prose prose-sm max-w-none break-words overflow-wrap-anywhere">
+                    <Markdown 
+                        components={{
+                            p: ({ children }) => <p className="break-words whitespace-pre-wrap">{children}</p>,
+                            div: ({ children }) => <div className="break-words">{children}</div>,
+                            span: ({ children }) => <span className="break-words">{children}</span>,
+                            code: ({ children }) => <code className="break-all bg-background px-1 py-0.5 rounded text-xs">{children}</code>,
+                            pre: ({ children }) => <pre className="break-all overflow-x-auto whitespace-pre-wrap bg-background p-2 rounded">{children}</pre>
+                        }}
+                    >
+                        {text}
+                    </Markdown>
+                </div>
             </div>
 
             {isError && (
